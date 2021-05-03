@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Reactive.Linq;
 using Microsoft.StreamProcessing;
 
-namespace HelloTrill
+namespace Test
 {
     class Program
     {
@@ -32,24 +32,57 @@ namespace HelloTrill
             
             var streamB = listB                                 // Creating streamB (not using yet) similar to streamA.
                     .ToObservable()
-                    .ToTemporalStreamable(e => e, e => e + 1)
+                    .ToTemporalStreamable(e => e, e => e + 100)
                 ;
             
             /**
              * Define transformations on the stream(s) 
              */
-            var result = streamA
-                    .Select(e => e + 1)                         // Set transformations on the stream.
+            var level1_result = streamA
+                    .Select(e => 3 * (e + 1))                         // Set transformations on the stream.
+                    .Where(e => e % 2 == 1)
+
                 ;                                               // In this case, Adding 1 to each payload using Select
             
             /**
              * Print out the result
-             */
-            result
+             
+            level1_result
                 .ToStreamEventObservable()                      // Convert back to Observable (of StreamEvents)
                 .Where(e => e.IsData)                           // Only pick data events from the stream
                 .ForEach(e => { Console.WriteLine(e); })        // Print the events to the console
                 ;
+            */
+
+            /*
+            var level2_result = streamA
+                .TumblingWindowLifetime(10)
+                .Sum(e => e);
+            level2_result
+                .ToStreamEventObservable()                      // Convert back to Observable (of StreamEvents)
+                .Where(e => e.IsData)                           // Only pick data events from the stream
+                .ForEach(e => { Console.WriteLine(e); })        // Print the events to the console
+                ;
+            */
+
+            /*
+            var joinA_B = streamA.Join(streamB, e => e, e => e, (l, r) => l + r);
+            joinA_B
+                .ToStreamEventObservable()                      // Convert back to Observable (of StreamEvents)
+                .Where(e => e.IsData)                           // Only pick data events from the stream
+                .ForEach(e => { Console.WriteLine(e); })        // Print the events to the console
+                ;
+            */
+            
+            
+            
+            var joinA_B_pair = streamA.Join(streamB, e => e, e => e, (l, r) => new {l, r});
+            joinA_B_pair
+                .ToStreamEventObservable()                      // Convert back to Observable (of StreamEvents)
+                .Where(e => e.IsData)                           // Only pick data events from the stream
+                .ForEach(e => { Console.WriteLine(e); })        // Print the events to the console
+                ;
+            
         }
     }
 }
