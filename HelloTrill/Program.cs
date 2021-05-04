@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Reactive.Linq;
 using Microsoft.StreamProcessing;
 
-namespace Test
+namespace HelloTrill
 {
     class Program
     {
@@ -75,9 +75,23 @@ namespace Test
                 .ShiftEventLifetime(-10)
                 .Sum(e => e)
                 .Join(s, (l, r) => new {l, r})
-                );
-            
-        
+            );
+
+            var level2_6 = streamA
+                .Multicast(a => a
+                    .ShiftEventLifetime(1)
+                    .TumblingWindowLifetime(10)
+                    .ShiftEventLifetime(-10)
+                    .Multicast(s => s.Average(e => e).Join(s
+                            .Aggregate(w => w.StandardDeviation(e => e)),
+                        (avg, sd) => new {Avg = avg, Sd = sd}))
+                    .Join(a, (l, r) => (r - l.Avg) / l.Sd));
+
+            level2_6
+                .ToStreamEventObservable()                      // Convert back to Observable (of StreamEvents)
+                .Where(e => e.IsData)                           // Only pick data events from the stream
+                .ForEach(e => { Console.WriteLine(e); })        // Print the events to the console
+                ;
 
             /*
              var window_sum_B = streamB
