@@ -43,45 +43,41 @@ namespace Test
 
             var level1_2 = streamA
                 .Select(e => 3 * e);
-
+            
             var level1_3 = streamA
+                .Where(e => e % 2 == 1);
+
+            var level1_4 = streamA
                 .Select(e => 3 * (e + 1)) 
                 .Where(e => e % 2 == 1);
 
-            var level2_1 = streamA.ShiftEventLifetime(1)
+            var level2_1 = streamA
+                .ShiftEventLifetime(1)
+                .TumblingWindowLifetime(10)
+                .ShiftEventLifetime(-10)
+                .Sum(e => e);
+            
+            var level2_2 = streamA
+                .Join(streamB, (A, B) => A + B);
+            
+            var level2_3 = streamA.
+                Join(streamB, (A, B) => new {A, B});
+
+            var level2_4 = streamB
+                .ShiftEventLifetime(1)
                 .TumblingWindowLifetime(10)
                 .ShiftEventLifetime(-10)
                 .Sum(e => e);
 
+            var level2_5 = streamA.Multicast(s => s
+                .ShiftEventLifetime(1)
+                .TumblingWindowLifetime(10)
+                .ShiftEventLifetime(-10)
+                .Sum(e => e)
+                .Join(s, (l, r) => new {l, r})
+                );
             
-            streamB
-                .ToStreamEventObservable()                      // Convert back to Observable (of StreamEvents)
-                .Where(e => e.IsData)                           // Only pick data events from the stream
-                .ForEach(e => { Console.WriteLine(e); })        // Print the events to the console
-                ;
-            
-            /*
-            
-            var level2_2 = streamA.
-                Join(streamB, (l, r) => l + r);
-            
-            level2_2
-                .ToStreamEventObservable()                      // Convert back to Observable (of StreamEvents)
-                .Where(e => e.IsData)                           // Only pick data events from the stream
-                .ForEach(e => { Console.WriteLine(e); })        // Print the events to the console
-                ;
-            
-            */
-
-
-            /*
-            var joinA_B_pair = streamA.Join(streamB, e => e, e => e, (l, r) => new {l, r});
-            joinA_B_pair
-                .ToStreamEventObservable()                      // Convert back to Observable (of StreamEvents)
-                .Where(e => e.IsData)                           // Only pick data events from the stream
-                .ForEach(e => { Console.WriteLine(e); })        // Print the events to the console
-                ;
-            */
+        
 
             /*
              var window_sum_B = streamB
