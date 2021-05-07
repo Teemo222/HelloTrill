@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Reactive.Linq;
 using Microsoft.StreamProcessing;
+using Microsoft.StreamProcessing.Aggregates;
 
 namespace HelloTrill
 {
@@ -15,10 +16,13 @@ namespace HelloTrill
             var SIZE = 1000; // Size of the data set
             var listA = new List<int>(); // A list for storing the data points
             var listB = new List<int>(); // Another list for storing the data points
+            var listC = new List<int>();
             for (int i = 0; i < SIZE; i++)
             {
                 listA.Add(i); // Populate listA with dummy data
                 listB.Add(i); // Populate listB with dummy data
+                if (i > 50 && i < 100 || i > 200 && i < 400) {}
+                else { listC.Add(i); }
             }
 
             /**
@@ -34,8 +38,11 @@ namespace HelloTrill
                     .ToObservable()
                     .ToTemporalStreamable(e => e, e => e + 100)
                 ;
-
             
+            var streamC = listC // Creating streamC, which has gaps
+                    .ToObservable()
+                    .ToTemporalStreamable(e => e, e => e + 1)
+                ;
             
             // 1.1
             var level1_1 = streamA
@@ -87,25 +94,39 @@ namespace HelloTrill
                         (avg, sd) => new {Avg = avg, Sd = sd}))
                     .Join(a, (l, r) => (r - l.Avg) / l.Sd));
 
-            level2_6
-                .ToStreamEventObservable()                      // Convert back to Observable (of StreamEvents)
-                .Where(e => e.IsData)                           // Only pick data events from the stream
-                .ForEach(e => { Console.WriteLine(e); })        // Print the events to the console
-                ;
+            // Something really weird happened on this one, don't know why Sum turns intervals into start and end 
+            var level2dot5 = streamA
+                .ShiftEventLifetime(1)
+                .HoppingWindowLifetime(10, 5)
+                .ShiftEventLifetime(-5)
+                .Sum(e => e);
+
+            var level3_1 = streamC
+                .AlterEventDuration(StreamEvent.InfinitySyncTime)
+                .Multicast(s => s
+                    .ClipEventDuration(s));
+
+            /* This query depends on level 3.1. Fixing 3.1 will make the following work
+            var level3_2 = level3_1
+                .Chop(0, 1);
+                
+            */
 
             /*
-             var window_sum_B = streamB
-                .TumblingWindowLifetime(10)
-                .Sum(e => e)
-                .Join(streamA, (l, r) => new{ l, r });
+            var level3_3 = level3_2
+                    .Select((origStartTime, e) => origStartTime);
+            */
+
+            
+            // To print any streamable
             streamA
                 .ToStreamEventObservable()                      // Convert back to Observable (of StreamEvents)
                 .Where(e => e.IsData)                           // Only pick data events from the stream
-                .ForEach(e => { Console.WriteLine(e); })        // Print the events to the console
+                .ForEach(e =>
+                {
+                    Console.WriteLine(e);
+                })        // Print the events to the console
                 ;
-            */
-            // streamA.Multicast(s => s.TumblingWindowLifetime(10).Sum(e => e));
-
         }
     }
 }
