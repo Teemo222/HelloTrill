@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Reactive;
 using System.Reactive.Linq;
 using Microsoft.StreamProcessing;
 using Microsoft.StreamProcessing.Aggregates;
@@ -101,27 +102,27 @@ namespace HelloTrill
                 .ShiftEventLifetime(-5)
                 .Sum(e => e);
 
+            
+            var fixedInterval = new[] { StreamEvent.CreateInterval(0, 1000, 10) }
+                .ToObservable().ToStreamable();
+
             var level3_1 = streamC
                 .AlterEventDuration(StreamEvent.InfinitySyncTime)
                 .Multicast(s => s
-                    .ClipEventDuration(s));
+                    .ClipEventDuration(s))
+                .Join(fixedInterval, (l, r) => l);
 
-            /* This query depends on level 3.1. Fixing 3.1 will make the following work
             var level3_2 = level3_1
                 .Chop(0, 1);
-                
-            */
-
-            /*
-            var level3_3 = level3_2
-                    .Select((origStartTime, e) => origStartTime);
-            */
 
             
+            var level3_3 = level3_2
+                    .Select((origStartTime, e) => origStartTime);
+            
             // To print any streamable
-            streamA
+            level3_2
                 .ToStreamEventObservable()                      // Convert back to Observable (of StreamEvents)
-                .Where(e => e.IsData)                           // Only pick data events from the stream
+                //.Where(e => e.IsData)                           // Only pick data events from the stream
                 .ForEach(e =>
                 {
                     Console.WriteLine(e);
