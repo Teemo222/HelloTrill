@@ -148,10 +148,49 @@ namespace HelloTrill
                 .WhereNotExists(streamC)
                 .Join(rollingMean, (l, r) => r);
 
-            var level3_5 = gaps_with_rolling_means.Union(streamC.Select(e => (double) e));
+            var level4_1 = gaps_with_rolling_means.Union(streamC.Select(e => (double) e));
             
-             // To print any streamable
-             level3_5
+            
+            
+            // Suppose we want to transform a stream with interval size 3 to interval size 2.
+            
+            var listD = new List<int>();
+            for (int i = 0; i < 100; i += 3)
+            {
+                listD.Add(i);
+            }
+
+            var streamD = listD
+                .ToObservable()
+                .ToTemporalStreamable(e => e, e => e + 3)
+                .Select(e => (e + 2) * 7 % 4);
+
+            var upsampled = streamD
+                .Chop(0, 2)
+                .Select((origStartTime, e) => origStartTime)
+                .Where(e => e % 2 == 0)
+                .AlterEventDuration(1);
+
+            var temp = streamD
+                .Chop(0, 1)
+                .Join(streamD, (l, r) => r);
+
+            var temp2 = streamD
+                .Chop(0, 1)
+                .ShiftEventLifetime(3)
+                .Join(streamD, (l, r) => r)
+                .ShiftEventLifetime(-3);
+
+            var temp3 = temp
+                .Join(temp2, (l, r) => new {left = (double) l, right = (double) r});
+
+            var level4_2 = upsampled
+                .Join(temp3, (l, r) =>
+                    r.left + (l % 3) * ((r.right - r.left) / 3))
+                .AlterEventDuration(2);
+
+            // To print any streamable
+            level4_2
                 .ToStreamEventObservable()                      // Convert back to Observable (of StreamEvents)
                 .Where(e => e.IsData)                           // Only pick data events from the stream
                 .ForEach(e =>
